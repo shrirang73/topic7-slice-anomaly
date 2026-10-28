@@ -1,0 +1,30 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Outputs: regenerate with the experiment scripts
+results/
+
+# Private, kept on this laptop only: the LaTeX write-up (its own local git repository) and working notes
+report/
+CLAUDE.md
+papers/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Local-only settings
+.claude/settings.local.json
+.streamlit/secrets.toml
+
+# Local reference documents (not ours to publish)
+5G materials/

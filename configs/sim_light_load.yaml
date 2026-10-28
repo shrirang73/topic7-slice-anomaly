@@ -1,0 +1,45 @@
+# Light-load scenario: the default slice mix with smaller eMBB bursts (about 38% load) and
+# steadier radio capacity (5% instead of 10% variation). Less shared slow noise is expected,
+# so the zero-frequency rule should predict a smaller coupling gain. Illustrative assumptions.
+
+slot_ms: 1.0
+window_slots: 100
+warmup_s: 5.0
+
+capacity:
+  mbps: 100.0
+  variation_std: 0.05
+  variation_ms: 500.0
+  min_factor: 0.3
+  max_factor: 1.7
+
+slices:
+  - name: eMBB
+    weight: 0.5
+    packet_bits: 12000
+    buffer_ms: 100.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: onoff
+      on_rate_pps: 5000         # 60 Mbit/s while ON
+      off_rate_pps: 500         # 6 Mbit/s while OFF
+      mean_on_ms: 200
+      mean_off_ms: 300          # mean rate 27.6 Mbit/s
+
+  - name: URLLC
+    weight: 0.3
+    packet_bits: 800
+    buffer_ms: 10.0
+    radio_loss: 1.0e-5
+    traffic:
+      model: poisson
+      rate_pps: 2500            # 2 Mbit/s
+
+  - name: mMTC
+    weight: 0.2
+    packet_bits: 400
+    buffer_ms: 50.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 20000           # 8 Mbit/s

@@ -1,0 +1,44 @@
+# Second-load scenario: the default slice mix (sim_default.yaml) with larger eMBB bursts,
+# so the server is about 72% loaded on average instead of 56%. Illustrative assumptions.
+
+slot_ms: 1.0
+window_slots: 100
+warmup_s: 5.0
+
+capacity:
+  mbps: 100.0
+  variation_std: 0.10
+  variation_ms: 500.0
+  min_factor: 0.3
+  max_factor: 1.7
+
+slices:
+  - name: eMBB
+    weight: 0.5
+    packet_bits: 12000
+    buffer_ms: 100.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: onoff
+      on_rate_pps: 10000        # 120 Mbit/s while ON
+      off_rate_pps: 2000        # 24 Mbit/s while OFF
+      mean_on_ms: 200
+      mean_off_ms: 300          # mean rate 62.4 Mbit/s
+
+  - name: URLLC
+    weight: 0.3
+    packet_bits: 800
+    buffer_ms: 10.0
+    radio_loss: 1.0e-5
+    traffic:
+      model: poisson
+      rate_pps: 2500            # 2 Mbit/s
+
+  - name: mMTC
+    weight: 0.2
+    packet_bits: 400
+    buffer_ms: 50.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 20000           # 8 Mbit/s

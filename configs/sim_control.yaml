@@ -1,0 +1,42 @@
+# Control scenario: no shared slow noise. Capacity is constant and eMBB is Poisson (no bursts),
+# about 38% load. The slices then share no slow noise, so the zero-frequency rule should
+# predict a coupling gain close to 1. Illustrative assumptions.
+
+slot_ms: 1.0
+window_slots: 100
+warmup_s: 5.0
+
+capacity:
+  mbps: 100.0
+  variation_std: 0.0
+  variation_ms: 500.0
+  min_factor: 0.3
+  max_factor: 1.7
+
+slices:
+  - name: eMBB
+    weight: 0.5
+    packet_bits: 12000
+    buffer_ms: 100.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 2300            # 27.6 Mbit/s, no bursts
+
+  - name: URLLC
+    weight: 0.3
+    packet_bits: 800
+    buffer_ms: 10.0
+    radio_loss: 1.0e-5
+    traffic:
+      model: poisson
+      rate_pps: 2500            # 2 Mbit/s
+
+  - name: mMTC
+    weight: 0.2
+    packet_bits: 400
+    buffer_ms: 50.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 20000           # 8 Mbit/s

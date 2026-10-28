@@ -1,0 +1,30 @@
+# Fault scenarios for the default 3-slice scenario (configs/sim_default.yaml).
+# Each scenario is a list of faults; every fault multiplies one parameter by `factor`
+# from the change time on (set by the experiment), as a step or, with ramp_s, a linear ramp.
+# Magnitudes are illustrative assumptions: clearly visible, not catastrophic.
+#
+# The comment after each name says which slices it should affect:
+#   shared      - every slice, in the same direction (moves along the normal coupling)
+#   local       - mainly one slice
+#   competitive - one slice gains what another loses
+
+capacity_drop:            # shared: the resource pool loses 30% of its capacity (e.g. a carrier fails)
+  - {kind: capacity, factor: 0.7}
+
+capacity_degradation:     # shared: the same 30% loss, but gradually over 60 s (slow degradation)
+  - {kind: capacity, factor: 0.7, ramp_s: 60}
+
+embb_surge:               # shared: eMBB traffic up 30% (more and bigger bursts), busier server for all
+  - {kind: traffic, slice: eMBB, factor: 1.3}
+
+urllc_surge:              # local: URLLC traffic x5 (2 -> 10 Mbit/s), still well inside its share
+  - {kind: traffic, slice: URLLC, factor: 5}
+
+mmtc_storm:               # competitive: mMTC device storm x3 (8 -> 24 Mbit/s), above its 20 Mbit/s share
+  - {kind: traffic, slice: mMTC, factor: 3}
+
+urllc_loss_burst:         # local: URLLC radio loss 1e-5 -> 1e-2 (e.g. interference on its carrier)
+  - {kind: radio_loss, slice: URLLC, factor: 1000}
+
+urllc_weight_misconfig:   # competitive: URLLC weight cut to a tenth (0.3 -> ~0.04); the others gain
+  - {kind: weight, slice: URLLC, factor: 0.1}

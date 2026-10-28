@@ -1,0 +1,47 @@
+# Default 3-slice scenario. All values are illustrative assumptions, not measurements:
+# chosen so that each slice has a plausible traffic type, the server is moderately loaded
+# (about 56% on average), and eMBB bursts exceed the capacity left by the other slices,
+# so eMBB queues build up during bursts and the slices interact.
+
+slot_ms: 1.0          # simulation time step
+window_slots: 100     # KPIs are computed per 100 ms window
+warmup_s: 5.0         # discarded at the start so queues reach steady state
+
+capacity:
+  mbps: 100.0         # nominal capacity of the shared resource pool
+  variation_std: 0.10 # +-10% (1 sd) fluctuation in capacity, e.g. changing radio conditions
+  variation_ms: 500.0 # correlation time of that fluctuation
+  min_factor: 0.3     # capacity is clipped to [30%, 170%] of nominal
+  max_factor: 1.7
+
+slices:
+  - name: eMBB        # high-rate, bursty traffic (e.g. video)
+    weight: 0.5
+    packet_bits: 12000          # 1500-byte packets
+    buffer_ms: 100.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: onoff
+      on_rate_pps: 8000         # 96 Mbit/s while ON: above its 50 Mbit/s guaranteed share and
+                                # above the ~90 Mbit/s the other slices leave free
+      off_rate_pps: 1000        # 12 Mbit/s while OFF
+      mean_on_ms: 200
+      mean_off_ms: 300          # mean rate 45.6 Mbit/s
+
+  - name: URLLC       # low-rate, latency-critical traffic
+    weight: 0.3
+    packet_bits: 800            # 100-byte packets
+    buffer_ms: 10.0
+    radio_loss: 1.0e-5
+    traffic:
+      model: poisson
+      rate_pps: 2500            # 2 Mbit/s
+
+  - name: mMTC        # many small, independent device reports
+    weight: 0.2
+    packet_bits: 400            # 50-byte packets
+    buffer_ms: 50.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 20000           # 8 Mbit/s

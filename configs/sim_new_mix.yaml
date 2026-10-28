@@ -1,0 +1,44 @@
+# Different slice mix: more weight and traffic for URLLC and mMTC, and slower eMBB bursts
+# (1 s ON, 1.5 s OFF on average). About 70% load. Illustrative assumptions.
+
+slot_ms: 1.0
+window_slots: 100
+warmup_s: 5.0
+
+capacity:
+  mbps: 100.0
+  variation_std: 0.10
+  variation_ms: 500.0
+  min_factor: 0.3
+  max_factor: 1.7
+
+slices:
+  - name: eMBB
+    weight: 0.3
+    packet_bits: 12000
+    buffer_ms: 100.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: onoff
+      on_rate_pps: 9000         # 108 Mbit/s while ON
+      off_rate_pps: 1000        # 12 Mbit/s while OFF
+      mean_on_ms: 1000
+      mean_off_ms: 1500         # mean rate 50.4 Mbit/s
+
+  - name: URLLC
+    weight: 0.3
+    packet_bits: 800
+    buffer_ms: 10.0
+    radio_loss: 1.0e-5
+    traffic:
+      model: poisson
+      rate_pps: 5000            # 4 Mbit/s
+
+  - name: mMTC
+    weight: 0.4
+    packet_bits: 400
+    buffer_ms: 50.0
+    radio_loss: 1.0e-3
+    traffic:
+      model: poisson
+      rate_pps: 40000           # 16 Mbit/s

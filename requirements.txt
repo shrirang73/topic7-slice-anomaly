@@ -1,0 +1,21 @@
+# Core dependencies, pinned to the versions tested on Python 3.14.7 (Windows 11), 2026-10-22.
+numpy==2.5.4
+scipy==1.18.1
+pandas==3.0.6
+statsmodels==0.15.0
+scikit-learn==1.9.1
+simpy==4.1.2
+matplotlib==3.11.2
+streamlit==1.66.1
+PyYAML==6.0.3
+
+# Dev / notebooks
+pytest==9.1.1
+ipykernel==7.4.0
+jupyterlab==4.6.4
+
+# Not included yet:
+# - torch (CPU): only needed for the optional LSTM/CNN autoencoder. Install when needed:
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+# - ruptures: no Python 3.14 wheel; pip falls back to an old 2021 release. Add later
+#   only if offline change-point segmentation is needed (or use a Python 3.12 venv).
