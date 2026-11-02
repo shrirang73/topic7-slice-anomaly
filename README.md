@@ -1,7 +1,5 @@
 # Quickest detection of QoS violations in 5G network slices
 
-5G Hackathon, Topic 7 (Communication Systems, BITS Pilani Goa). Team: Shrirang Bhale, Palash, Naveen.
-
 5G network slices (eMBB, URLLC, mMTC) share one physical resource pool, so a fault in one slice shows up in the KPIs of the others. We simulate slices as queues sharing a server, inject labelled faults, and compare detectors on **detection delay at an equal false-alarm rate** (ARL), with every threshold calibrated by simulation.
 
 **Detectors implemented:**
