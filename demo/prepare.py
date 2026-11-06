@@ -3,7 +3,8 @@
 - the fault-free stream model (mean, sd, AR(1)) of the 11 KPI streams of notebook 05;
 - the "standard" detector: per-stream two-sided CUSUM on raw z-scores of all 11 streams,
   equalised thresholds (notebook 05);
-- the "coupled" detector: bank of 20 coupled CUSUMs on the 3 whitened latency streams (notebook 07);
+- the "coupled" detector: bank of 20 coupled CUSUMs on the 3 latency streams whitened jointly by a
+  VAR model (notebooks 10 and 14);
 - the "combined" detector: both of the above together, alarm when either fires (notebook 08), with each
   part given half the false-alarm budget;
 all calibrated by simulation to ARL 1000 windows (100 s), with the same seeds as the notebooks.
@@ -16,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from slicead.detectors import CUSUM, CUSUMBank, StreamModel, Union, candidate_directions, stream_array
+from slicead.detectors import CUSUM, CUSUMBank, StreamModel, Union, VARModel, candidate_directions, stream_array
 from slicead.eval import calibrate_bank, calibrate_per_stream, calibrate_union
 from slicead.sim import load_config, simulate
 
@@ -34,19 +35,24 @@ def main():
     cfg = load_config(ROOT / "configs" / "sim_default.yaml")
     train = simulate(cfg, n_windows=3000, n_runs=8, seed=SEED)
     calib = simulate(cfg, n_windows=3000, n_runs=32, seed=SEED + 1)
-    model = StreamModel().fit(stream_array(train, STREAMS))
+    Xtr = stream_array(train, STREAMS)
+    model = StreamModel().fit(Xtr)
+    var = VARModel(max_p=30).fit(Xtr[:, :, LAT])
     Xcal = stream_array(calib, STREAMS)
+    Vcal = var.whiten(Xcal[:, :, LAT])
+    C = candidate_directions(3)
 
     standard = CUSUM(0.5)
     c_std, arl_std = calibrate_per_stream(standard, model.standardize(Xcal), TARGET_ARL)
 
-    Sigma = np.corrcoef(model.whiten(stream_array(train, STREAMS))[:, :, LAT].reshape(-1, 3).T)
-    bank = CUSUMBank(candidate_directions(3), Sigma)
-    c_bank, arl_bank = calibrate_bank(bank, model.whiten(Xcal)[:, :, LAT], TARGET_ARL)
+    # instantaneous correlation of the AR(1)-whitened latencies: used only to name the symptom of an alarm
+    Sigma_sym = np.corrcoef(model.whiten(Xtr)[:, :, LAT].reshape(-1, 3).T)
+    bank = CUSUMBank(var.residual_directions(C), var.Sigma_e)
+    c_bank, arl_bank = calibrate_bank(bank, Vcal, TARGET_ARL)
 
-    # combined: columns 0-10 raw z of the 11 KPIs, 11-13 whitened latencies
-    Zcomb = np.concatenate([model.standardize(Xcal), model.whiten(Xcal)[:, :, LAT]], axis=2)
-    std_part, bank_part = CUSUM(0.5), CUSUMBank(candidate_directions(3), Sigma)
+    # combined: columns 0-10 raw z of the 11 KPIs, 11-13 VAR innovations of the latencies
+    Zcomb = np.concatenate([model.standardize(Xcal), Vcal], axis=2)
+    std_part, bank_part = CUSUM(0.5), CUSUMBank(bank.directions, bank.Sigma)
     std_part.scale, bank_part.scale = standard.scale.copy(), bank.scale.copy()
     union = Union([(std_part, list(range(11)), c_std), (bank_part, [11, 12, 13], c_bank)], sizes=[11, 20])
     c_comb, arl_comb = calibrate_union(union, Zcomb, TARGET_ARL)
@@ -58,7 +64,10 @@ def main():
         "latency_index": LAT,
         "model": {k: getattr(model, k).tolist() for k in ("mu", "sd", "phi", "sd_e")},
         "standard": {"k": 0.5, "scale": standard.scale.tolist(), "threshold": c_std, "arl": arl_std},
-        "coupled": {"Sigma": Sigma.tolist(), "directions": candidate_directions(3).tolist(),
+        "var": {"p": var.p, "mu": var.mu.tolist(), "sd": var.sd.tolist(), "A": var.A.tolist(),
+                "sd_e": var.sd_e.tolist(), "Sigma_e": var.Sigma_e.tolist(), "dc_gain": var.dc_gain.tolist()},
+        "symptom": {"Sigma": Sigma_sym.tolist()},
+        "coupled": {"candidates": C.tolist(), "directions": bank.directions.tolist(), "Sigma": bank.Sigma.tolist(),
                     "scale": bank.scale.tolist(), "threshold": c_bank, "arl": arl_bank},
         "combined": {"standard_threshold": union.parts[0][2], "coupled_threshold": union.parts[1][2],
                      "factor": c_comb, "arl": arl_comb},

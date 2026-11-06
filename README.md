@@ -26,12 +26,13 @@ Everything runs on an ordinary laptop: no hardware, CPU only. A detailed, self-c
 | `notebooks/05_detectors.ipynb` | Shewhart, EWMA and per-stream CUSUM detectors (`src/slicead/detectors/`), calibrated by simulation to a common ARL, over a fault-magnitude sweep. Slice-local faults are caught within about a second; shared capacity faults below about 8% are not. |
 | `notebooks/06_utilisation_kpi.ipynb` | Adds a cell-level resource-utilisation KPI (like PRB utilisation). Negative result: it is dominated by load and saturates during bursts, so it does not make shared capacity faults detectable. |
 | `notebooks/07_coupled_detectors.ipynb` | A shape-agnostic bank of coupled latency CUSUMs is 6–19× faster than per-slice CUSUM on small slice-local faults (far above the first-order 2×), and about 10× faster than the best all-KPI detector on a scheduling-weight misconfiguration. No gain on shared faults. |
-| `notebooks/08_combined_detector.ipynb` | **Recommended detector.** It combines the per-KPI CUSUM and the coupled latency bank, jointly calibrated to the same false-alarm rate, and matches the faster of the two on every fault (median delay ratio 1.00) without knowing the fault type. |
+| `notebooks/08_combined_detector.ipynb` | The combined detector. It combines the per-KPI CUSUM and the coupled latency bank, jointly calibrated to the same false-alarm rate, and matches the faster of the two on every fault (median delay ratio 1.00) without knowing the fault type. |
 | `notebooks/09_tail_cancellation.ipynb` | Why coupling beats Gaussian theory. Not heavy tails (refuted): the slices share slow, low-frequency noise, and the gain is governed by the cross-slice coherence at frequency zero. |
 | `notebooks/10_long_run_coupling.ipynb` | Detectors built on that mechanism. A bank on jointly VAR-whitened latencies is about 17–24× faster than per-slice CUSUM on small slice-local faults, matching the zero-frequency prediction 1/(1−R²_DC) ≈ 20. Richer per-slice whitening gives nothing. |
 | `notebooks/11_second_load.ipynb` | The zero-frequency rule in five settings (`configs/sim_*.yaml`). It predicts no gain where slices share no slow noise (correct), and the 14–33× gain to within a factor of 1.7 in three coupled settings. It over-predicts 2.4–4.8× at light load, which is still unexplained. Instantaneous correlation underestimates the gain about 10× wherever slices share slow noise. |
 | `notebooks/12_matched_reference.ipynb` | Why the rule over-predicted at light load. Matching each CUSUM to the fault's size does not explain it. What does: the rule is a long-delay limit. Converting the same zero-frequency information rates into delays at the actual ARL (Siegmund) predicts matched detectors' coupling gain to within a factor of 2 in all 30 cases across five settings. |
 | `notebooks/13_arl_sweep.ipynb` | Pre-registered test of that explanation at ARL 100, 1000 and 10 000. The coupling gain rises with the ARL in 17 of 17 coupled cases (median ×2.6). The finite-ARL prediction holds at ARL 1000 and 10 000 in 23 of 23 cases, and at ARL 100 in 21 of 23. The control stays flat. Saves per-setting results in `results/13_arl_sweep/` and reuses them on a re-run. |
+| `notebooks/14_combined_var.ipynb` | **Recommended detector.** The combined detector with the VAR-whitened bank as its coupled part. On a barely visible weight misconfiguration (s = 0.03) it cuts the mean delay from 17.4 s to 1.7 s and finds every fault; over all faults the mean delay goes from 12.4 s to 11.7 s, and nothing gets meaningfully worse. The demo uses it. |
 
 ## Demo
 
@@ -47,7 +48,7 @@ Run that once (about 3 minutes) to calibrate both detectors into `demo/calibrati
 python -m streamlit run demo/app.py --server.address localhost
 ```
 
-and open http://localhost:8501. `--server.address localhost` keeps the app private to your laptop. The default scenario, a small URLLC scheduling-weight misconfiguration, shows the project's main result: the coupled detector alarms within about 0.6 s, the standard one after about 4 s.
+and open http://localhost:8501. `--server.address localhost` keeps the app private to your laptop. The default scenario, a small URLLC scheduling-weight misconfiguration (seed 5), shows the project's main result: the coupled detector alarms about 0.3 s after the fault, the standard one after about 5 s.
 
 ## Setup
 

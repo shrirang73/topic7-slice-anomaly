@@ -37,7 +37,10 @@ def alarm_time(value):
 
 
 def test_combined_detector_takes_the_faster_part():
-    for fault, part in [("urllc_weight_misconfig", "coupled"), ("urllc_surge", "standard")]:
+    # weight misconfiguration: delay only, so the coupled part wins; mMTC storm: seen first in throughput, and
+    # notebook 14 finds the standard part firing in 100% of its detections (with the VAR bank, a URLLC
+    # surge can go either way, so it no longer makes a reliable test)
+    for fault, part in [("urllc_weight_misconfig", "coupled"), ("mmtc_storm", "standard")]:
         at = AppTest.from_file(str(APP), default_timeout=180)
         at.run()
         at.sidebar.selectbox[0].set_value(fault)

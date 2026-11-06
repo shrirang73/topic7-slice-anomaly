@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from slicead.detectors import CUSUM, CUSUMBank, StreamModel, stream_array
+from slicead.detectors import CUSUM, CUSUMBank, StreamModel, VARModel, stream_array
 from slicead.sim import Fault, load_config, load_fault_scenarios, simulate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,11 +45,17 @@ def load_detectors():
     model = StreamModel()
     for k, v in cal["model"].items():
         setattr(model, k, np.array(v))
+    var = VARModel()
+    v = cal["var"]
+    var.p = v["p"]
+    for k in ("mu", "sd", "A", "sd_e", "Sigma_e", "dc_gain"):
+        setattr(var, k, np.array(v[k]))
     standard = CUSUM(cal["standard"]["k"])
     standard.scale = np.array(cal["standard"]["scale"])
     bank = CUSUMBank(cal["coupled"]["directions"], cal["coupled"]["Sigma"])
     bank.scale = np.array(cal["coupled"]["scale"])
-    return dict(cal=cal, model=model, streams=[tuple(s) for s in cal["streams"]], lat=cal["latency_index"],
+    return dict(cal=cal, model=model, var=var, streams=[tuple(s) for s in cal["streams"]], lat=cal["latency_index"],
+                Sigma_symptom=np.array(cal["symptom"]["Sigma"]),
                 standard=(standard, cal["standard"]["threshold"]), coupled=(bank, cal["coupled"]["threshold"]),
                 combined=cal["combined"])
 
@@ -110,9 +116,10 @@ with st.sidebar:
                                      "configs/faults.yaml). Small strengths are where detectors differ.",
                                 disabled=fault == "none")
     fault_s = st.slider("Fault starts at (s)", 10, 40, 20, disabled=fault == "none")
-    seed = st.number_input("Random seed", 0, 10_000, 0, step=1,
+    seed = st.number_input("Random seed", 0, 10_000, 5, step=1,
                            help="Each seed is a different random run. With one false alarm per 100 s, about "
-                                "half of all 60 s runs show a false alarm somewhere; seed 0 has none.")
+                                "half of all 60 s runs show a false alarm somewhere; the default seed, 5, is the smallest "
+                                "with none.")
     st.divider()
     st.header("Playback")
     animate = st.toggle("Animate in real time", value=False)
@@ -123,9 +130,10 @@ with st.sidebar:
 
 sim = run_simulation(fault, strength, float(fault_s), int(seed))
 Xs = D["model"].standardize(sim["X"])                  # (1 run, n_windows, 11 streams)
-Xw = D["model"].whiten(sim["X"])[:, :, D["lat"]]       # whitened latency of the three slices
+Xv = D["var"].whiten(sim["X"][:, :, D["lat"]])        # latency of the three slices, whitened jointly (VAR)
+Xw = D["model"].whiten(sim["X"])[:, :, D["lat"]]       # each slice's latency whitened on its own (for the symptom)
 std_score, std_which = score_path(D["standard"][0], Xs, D["standard"][1])
-cpl_score, cpl_which = score_path(D["coupled"][0], Xw, D["coupled"][1])
+cpl_score, cpl_which = score_path(D["coupled"][0], Xv, D["coupled"][1])
 # combined detector: alarm when either part reaches its (raised) threshold inside the union
 cb = D["combined"]
 parts = np.stack([std_score * D["standard"][1] / cb["standard_threshold"],
@@ -146,19 +154,21 @@ with st.expander("What am I looking at?", expanded=False):
     st.markdown(
         "Three network slices (eMBB video, URLLC low-latency control, mMTC sensors) share one cell, "
         "simulated at 1 ms resolution; KPIs are reported every 100 ms. A fault is injected at the chosen "
-        "time. Two detectors watch the KPIs:\n\n"
+        "time. Three detectors watch the KPIs:\n\n"
         "- **Standard**: a CUSUM on each of 11 KPIs (throughput, latency, jitter, loss of every slice) "
         "separately, alarm when any one crosses its threshold.\n"
-        "- **Coupled**: a bank of 20 CUSUMs on the three slices' latencies *together*. Each looks for one "
-        "fault pattern (one slice alone, all together, pairs) after removing the delay noise the slices "
-        "share, so it can see small faults that are hidden in shared noise.\n"
+        "- **Coupled**: a bank of 20 CUSUMs on the three slices' latencies *together*. The latencies are "
+        "first whitened jointly by a vector autoregression, which removes the slow delay noise the slices "
+        "share (traffic bursts, capacity drift). Each CUSUM then looks for one fault pattern (one slice "
+        "alone, all together, pairs), so it can see small faults hidden in that shared noise.\n"
         "- **Combined**: both of the above together; it alarms as soon as either does. To keep the same "
         "false-alarm rate, each part gets half the false-alarm budget, so its thresholds are slightly "
         "higher than when used alone.\n\n"
         "All three raise a false alarm about once every 100 s in normal operation, so their speed can be "
-        "compared fairly. Each alarm also names the **symptom** that tripped it, which need not be the "
-        "slice where the root cause is: when URLLC's scheduling weight is cut, the capacity it loses "
-        "goes to the other slices, so the first visible symptom is often *mMTC getting faster*.\n\n"
+        "compared fairly. Each alarm also names a **symptom**: the KPI that tripped the standard detector, "
+        "or, for the coupled detector, the slice whose latency moved most beyond what the other slices "
+        "explain (or *all slices*). A symptom need not be where the root cause is: when URLLC's "
+        "scheduling weight is cut, the capacity it loses goes to the other slices.\n\n"
         "Try the default (a small URLLC weight misconfiguration), then a URLLC traffic surge, then a "
         "cell capacity drop, a fault shared by all slices, where coupling does not help.")
 
@@ -192,7 +202,7 @@ def draw(upto):
             s, k = D["streams"][std_which[a]]
             culprit = f"{s} {k.split('_')[0]}"
         else:
-            culprit = blame_slice(Xw, a, D["coupled"][0].Sigma)
+            culprit = blame_slice(Xw, a, D["Sigma_symptom"])
         if key == "combined":
             culprit += f" (via {part} part)"
         col.metric(name, f"ALARM at {when:.1f} s", f"{label} · symptom: {culprit}", delta_color="off")

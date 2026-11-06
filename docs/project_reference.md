@@ -212,14 +212,14 @@ All notebooks are in `notebooks/`. Each exports its figures, tables and key numb
 - **Shared faults:** 0.94–0.96×, no gain.
 - **Against the full 11-KPI detector:** about 10× faster on the weight misconfiguration (0.4 s vs 4.1 s), a fault that changes no traffic.
 
-### 08 – Combined detector (the recommended practical detector)
+### 08 – Combined detector
 - **What it is:** per-KPI CUSUM on all 11 KPIs ∪ the coupled latency bank, jointly calibrated. Each part alone gets ARL 2000 windows, then one factor brings the union to 1000.
 - **It matches the faster part on every fault** without knowing the fault type: median delay ratio to the better part 1.00, max 1.24.
 - **Mean delay over the sweep:** 12.4 s, against 12.6 s for the per-KPI detector and 14.8 s for the bank.
 
 ### Demo (`demo/app.py`, Streamlit)
 - **What it does:** simulates 60 s of three slices with a user-chosen fault and plays back KPIs and the statistics of three detectors (standard, coupled, combined).
-- **Default case** (URLLC weight misconfiguration, s = 0.1): coupled alarm at about 0.6 s, standard at about 3.9 s.
+- **Default case** (URLLC weight misconfiguration, s = 0.1, seed 5): coupled alarm 0.3 s after the fault, standard 5.1 s after it (after notebook 14's upgrade).
 - **Run it:** `python -m streamlit run demo/app.py --server.address localhost`.
 
 ### 09 – Why coupling beats Gaussian theory (mechanism)
@@ -266,6 +266,15 @@ All notebooks are in `notebooks/`. Each exports its figures, tables and key numb
   - **P3 (control stays flat): holds,** 0.97–1.09 for single-slice faults and 1.4–2.0 for the two-slice weight misconfiguration (whose no-coupling value is about 2).
 - **The asymptotic ratio becomes accurate only for long delays:** median measured/G_DC is 0.35, 0.65 and 0.92 at the three ARLs.
 - **Open:** at ARL 10 000 the gain is 0.84 of the Bartlett limit but 0.46 of the VAR-implied one, and still rising, so which limit is right is unknown.
+
+### 14 – Combined detector with the VAR bank (the recommended practical detector)
+- **What changed:** the combined detector's coupled part is now the bank on jointly VAR-whitened latencies, instead of the instantaneous-Σ bank. It uses the same sweep and seeds as notebook 08, and reproduces notebook 08's detectors exactly.
+- **Delay-only fault:** URLLC weight misconfiguration at s = 0.03 goes from 17.4 s to **1.7 s** (found 72% → 100%); at s = 0.1, 0.43 s → 0.33 s.
+- **Overall:** mean delay 12.4 s → 11.7 s; faults found within 30 s 71% → 73%.
+- **No meaningful loss:** new/old median 1.00 over 27 informative cells. It is slower by more than 10% in only 2 cells, both under a second. Against the better of its two parts: median 1.00, worst 1.14.
+- **Hidden gains:** the VAR bank's gains on small surges and storms don't show inside the combination, because the per-KPI part already catches them through throughput.
+- **Detection is not diagnosis:** right after a fault, several bank candidates score almost equally, so the winning candidate is not a reliable label. The demo names the symptom from the per-slice whitened latencies (Σ regression residual) instead.
+- **The demo now uses this detector.** Default seed 5 is the smallest seed with no false alarm in 60 s; over seeds 0–19 the coupled detector was first in 13/13 clean runs.
 
 ---
 
@@ -361,11 +370,12 @@ All notebooks are in `notebooks/`. Each exports its figures, tables and key numb
 
 **Next steps, roughly in order of value for a paper:**
 1. **Finite-ARL analysis for practical, non-oracle detectors** (bank with a fixed reference and candidate search).
-2. **Put the VAR bank inside the combined detector and the demo.**
-3. **ML baselines** at the same ARL.
-4. **Systematic prior-art search** and full-text reading of the closest papers.
-5. **The paper draft** (Dec–Feb).
-6. **Practical items:** a GitHub remote; ask the professor whether simulation-only is acceptable; showcase slides.
+2. **ML baselines** at the same ARL.
+3. **Systematic prior-art search** and full-text reading of the closest papers.
+4. **The paper draft** (Dec–Feb).
+5. **Practical items:** ask the professor whether simulation-only is acceptable; showcase slides.
+
+*Done since the first version of this list:* the VAR bank inside the combined detector and the demo (notebook 14); a public GitHub repository.
 
 ---
 
